@@ -1,36 +1,18 @@
-// const express = require("express");
-// const app = express();
-// const port = 3000;
+import { WebSocketServer } from "ws";
 
-// app.get("/", (req, res) => {
-//   res.send("Hello World!");
-// });
+const wss = new WebSocketServer({ port: 8080 });
 
-// app.listen(port, () => {
-//   console.log(`Example app listening on port ${port}`);
-// });
+wss.on("connection", function connection(ws) {
+  ws.on("error", console.error);
+  const messages = [];
 
-// Creates a new WebSocket connection to the specified URL.
-const socket = new WebSocket("ws://localhost:8080");
+  ws.on("message", function message(data) {
+    // console.log("received: %s", data);
 
-// Executes when the connection is successfully established.
-socket.addEventListener("open", (event) => {
-  console.log("WebSocket connection established!");
-  // Sends a message to the WebSocket server.
-  socket.send("Hello Server!");
-});
+    const textString = data.toString("utf8");
+    messages.push(textString);
+    console.log("received: %s", JSON.stringify(messages));
+  });
 
-// Listen for messages and executes when a message is received from the server.
-socket.addEventListener("message", (event) => {
-  console.log("Message from server: ", event.data);
-});
-
-// Executes when the connection is closed, providing the close code and reason.
-socket.addEventListener("close", (event) => {
-  console.log("WebSocket connection closed:", event.code, event.reason);
-});
-
-// Executes if an error occurs during the WebSocket communication.
-socket.addEventListener("error", (error) => {
-  console.error("WebSocket error:", error);
+  ws.send(messages);
 });
