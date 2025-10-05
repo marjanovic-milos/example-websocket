@@ -8,6 +8,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "build": "next build",
     "dev": "nodemon server.js"
   },
   "dependencies": {
@@ -19,6 +20,7 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "uuid": "^13.0.0",
+    "vite": "^7.1.9",
     "ws": "^8.18.3"
   }
 }

@@ -4,11 +4,13 @@ import { v4 } from "uuid";
 import next from "next";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
+ 
+
 
 const BOT_TOKEN = "8490569804:AAF8gPT2dOjSfzOmOJyT-u0IV7Sd-J26TSk";
 const GAME_SHORT_NAME = "short_game";
 
-const app = next({ dev: true });
+const app = next({ dev: true});
 const handle = app.getRequestHandler();
 dotenv.config();
 
@@ -69,6 +71,9 @@ app.prepare().then(() => {
   const players = [];
 
   // server.on("upgrade", (req, socket, head) => {
+  //       if (req.headers["sec-websocket-protocol"] === "vite-hmr") {
+  //     return;
+  //   }
   //   wss.handleUpgrade(req, socket, head, (ws) => {
   //     wss.emit("connection", ws, req);
   //   });
@@ -78,6 +83,10 @@ app.prepare().then(() => {
     ws.id = v4();
     players.push(ws);
 
+        if (req.headers["sec-websocket-protocol"] === "vite-hmr") {
+      return;
+    }
+
     if (players.length < 2) {
       ws.send("Waiting for more players...");
     } else {
@@ -85,6 +94,12 @@ app.prepare().then(() => {
     }
 
     ws.on("message", (message) => {
+
+      if(!message)
+      {
+         return;
+
+      }
       messages.push({ id: ws.id, message: message.toString("utf8") });
 
       for (const player of players) {
