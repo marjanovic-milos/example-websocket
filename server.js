@@ -1,125 +1,115 @@
+import express from "express";
 import { WebSocketServer } from "ws";
-import { createServer } from "http";
-import { v4 } from "uuid";
-import next from "next";
 import fetch from "node-fetch";
+import bodyParser from "body-parser";
+import { createServer } from "http";
 import dotenv from "dotenv";
- 
 
+dotenv.config();
 
 const BOT_TOKEN = "8490569804:AAF8gPT2dOjSfzOmOJyT-u0IV7Sd-J26TSk";
 const GAME_SHORT_NAME = "short_game";
+const WEBAPP_URL = "https://nonviolative-isaura-nonhumorously.ngrok-free.dev";  
 
-const app = next({ dev: true});
-const handle = app.getRequestHandler();
-dotenv.config();
+const app = express();
+app.use(bodyParser.json());
+app.use(express.static("public")); // Serve index.html and assets from /public
 
-app.prepare().then(() => {
-  const server = createServer(async (req, res) => {
-    if (req.method === "POST" && req.url === "/webhook") {
-      // Handle Telegram updates
-      let body = "";
-      req.on("data", (chunk) => (body += chunk));
-      req.on("end", async () => {
-        try {
-          const update = JSON.parse(body);
+const clients = new Set();
 
-          if (update.message) {
-            const chatId = update.message.chat.id;
-            const text = update.message.text;
+// Create WebSocket server
+const wss = new WebSocketServer({ noServer: true });
 
-            // If user types /start or /play, send the Play button
-            if (text === "/start" || text === "/play") {
-              await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendGame`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  chat_id: chatId,
-                  game_short_name: GAME_SHORT_NAME,
-                }),
-              });
-            }
-          }
-          if (update.callback_query) {
-            const callback = update.callback_query;
-            if (callback.game_short_name === GAME_SHORT_NAME) {
-              await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  callback_query_id: callback.id,
-                  url: "https://nonviolative-isaura-nonhumorously.ngrok-free.dev",
-                }),
-              });
-            }
-          }
-        } catch (err) {
-          console.error("Telegram webhook error:", err);
-        }
+wss.on("connection", (ws) => {
+  clients.add(ws);
+  console.log("✅ WebSocket client connected");
 
-        res.writeHead(200);
-        res.end("ok");
-      });
-    } else {
-      handle(req, res);
-    }
+  ws.on("close", () => {
+    clients.delete(ws);
+    console.log("❌ WebSocket client disconnected");
   });
 
-  const wss = new WebSocketServer({ server });
+  ws.on("message", async (msg) => {
+    try {
 
-  const messages = [];
-  const players = [];
+   const data = JSON.parse(msg);
+    console.log("WS message:", data);
 
-  // server.on("upgrade", (req, socket, head) => {
-  //       if (req.headers["sec-websocket-protocol"] === "vite-hmr") {
-  //     return;
-  //   }
-  //   wss.handleUpgrade(req, socket, head, (ws) => {
-  //     wss.emit("connection", ws, req);
-  //   });
-  // });
-
-  wss.on("connection", (ws) => {
-    ws.id = v4();
-    players.push(ws);
-
-        if (req.headers["sec-websocket-protocol"] === "vite-hmr") {
-      return;
+    // Broadcast this message to ALL other clients
+    for (const client of clients) {
+      if (client !== ws && client.readyState === ws.OPEN) {
+        client.send(JSON.stringify({ from: "client", data }));
+      }
     }
 
-    if (players.length < 2) {
-      ws.send("Waiting for more players...");
-    } else {
-      ws.send(JSON.stringify(messages));
+  
+ 
+
+     
+    } catch (err) {
+      console.error("WS message error:", err);
     }
-
-    ws.on("message", (message) => {
-
-      if(!message)
-      {
-         return;
-
-      }
-      messages.push({ id: ws.id, message: message.toString("utf8") });
-
-      for (const player of players) {
-        if (player.readyState === player.OPEN) {
-          player.send(JSON.stringify(messages));
-        }
-      }
-    });
-
-    ws.on("error", (error) => console.log(error));
-
-    ws.on("close", () => {
-      console.log("connection closed", ws.id);
-      const index = players.findIndex((p) => p.id === ws.id);
-      if (index !== -1) players.splice(index, 1);
-    });
-  });
-
-  server.listen(3000, (err) => {
-    if (err) throw err;
-    console.log("> Server ready on http://localhost:3000");
   });
 });
+
+// Telegram Webhook
+app.post("/webhook", async (req, res) => {
+  const update = req.body;
+
+  try {
+    if (update.message) {
+      const chatId = update.message.chat.id;
+      const text = update.message.text;
+
+      // Send to WebSocket clients
+      for (const client of clients) {
+        client.send(JSON.stringify({ type: "message", chatId, text }));
+      }
+
+      if (text === "/start" || text === "/play") {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendGame`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            game_short_name: GAME_SHORT_NAME,
+          }),
+        });
+      }
+    }
+
+    if (update.callback_query) {
+      const callback = update.callback_query;
+      if (callback.game_short_name === GAME_SHORT_NAME) {
+        await fetch(
+          `https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              callback_query_id: callback.id,
+              url: WEBAPP_URL,
+            }),
+          }
+        );
+      }
+    }
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("Telegram webhook error:", err);
+    res.sendStatus(500);
+  }
+});
+
+// Create HTTP server and integrate WebSocket
+const server = createServer(app);
+
+server.on("upgrade", (req, socket, head) => {
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit("connection", ws, req);
+  });
+});
+
+const PORT = 3000 ;
+server.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));

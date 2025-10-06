@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Telegram WebSocket Chat</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        background: #111;
+        color: #eee;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 2rem;
+      }
+      #messages {
+        width: 80%;
+        height: 300px;
+        border: 1px solid #444;
+        overflow-y: auto;
+        margin-bottom: 1rem;
+        padding: 1rem;
+      }
+      input, button {
+        padding: 0.5rem;
+        margin: 0.2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>💬 Telegram WebSocket Chat</h2>
+    <div id="messages"></div>
+
+    <input id="chatId" placeholder="Chat ID" />
+    <input id="text" placeholder="Message" />
+    <button id="send">Send</button>
+
+    <script>
+      const ws = new WebSocket(`ws://${location.host}`);
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === "message") {
+          const div = document.getElementById("messages");
+          div.innerHTML += `<div><b>${data.chatId}:</b> ${data.text}</div>`;
+        }
+      };
+
+      document.getElementById("send").onclick = () => {
+        const chatId = document.getElementById("chatId").value;
+        const text = document.getElementById("text").value;
+        ws.send(JSON.stringify({ type: "send_message", chatId, text }));
+      };
+    </script>
+  </body>
+</html>
