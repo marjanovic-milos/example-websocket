@@ -1,5 +1,5 @@
 import express from "express";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import fetch from "node-fetch";
 import bodyParser from "body-parser";
 import { createServer } from "http";
@@ -17,6 +17,8 @@ app.use(express.static("public")); // Serve index.html and assets from /public
 
 const clients = new Set();
 
+const messages = [];
+
 // ✅ Create WebSocket server
 const wss = new WebSocketServer({ noServer: true });
 
@@ -31,20 +33,21 @@ wss.on("connection", (ws) => {
 
   ws.on("message", async (msg) => {
     try {
-      const data = JSON.parse(msg);
+      const data = JSON.parse(msg.toString());
       console.log("WS message:", data);
+      messages.push(data);
 
       // ✅ Only start broadcasting if at least 2 clients are connected
       if (clients.size >= 2) {
+        // ws.send(JSON.stringify(messages));
         for (const client of clients) {
-          if (client.readyState === ws.OPEN) {
-            client.send(JSON.stringify({ from: "client", data }));
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(messages));
           }
         }
       } else {
         console.log("Waiting for second user to connect...");
       }
-
     } catch (err) {
       console.error("WS message error:", err);
     }
@@ -66,6 +69,7 @@ app.post("/webhook", async (req, res) => {
       if (clients.size >= 2) {
         for (const client of clients) {
           if (client.readyState === client.OPEN) {
+            console.log("should go out ");
             client.send(JSON.stringify({ type: "message", chatId, text }));
           }
         }
@@ -87,17 +91,14 @@ app.post("/webhook", async (req, res) => {
     if (update.callback_query) {
       const callback = update.callback_query;
       if (callback.game_short_name === GAME_SHORT_NAME) {
-        await fetch(
-          `https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              callback_query_id: callback.id,
-              url: WEBAPP_URL,
-            }),
-          }
-        );
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            callback_query_id: callback.id,
+            url: WEBAPP_URL,
+          }),
+        });
       }
     }
 

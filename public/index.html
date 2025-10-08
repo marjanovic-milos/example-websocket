@@ -40,16 +40,16 @@
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data.type === "message") {
+        // if (data.type === "message") {
           const div = document.getElementById("messages");
           div.innerHTML += `<div><b>${data.chatId}:</b> ${data.text}</div>`;
-        }
+        // }
       };
 
       document.getElementById("send").onclick = () => {
         const chatId = document.getElementById("chatId").value;
         const text = document.getElementById("text").value;
-        ws.send(JSON.stringify({ type: "send_message", chatId, text }));
+        ws.send(JSON.stringify({ chatId, text }));
       };
     </script>
   </body>
