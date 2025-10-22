@@ -10,7 +10,7 @@ dotenv.config();
 const BOT_TOKEN = "8490569804:AAF8gPT2dOjSfzOmOJyT-u0IV7Sd-J26TSk";
 const GAME_SHORT_NAME = "short_game";
 const WEBAPP_URL = "https://nonviolative-isaura-nonhumorously.ngrok-free.dev";
-
+ 
 const app = express();
 app.use(bodyParser.json());
 app.use(express.static("public")); // Serve index.html and assets from /public
@@ -22,8 +22,14 @@ const messages = [];
 // ✅ Create WebSocket server
 const wss = new WebSocketServer({ noServer: true });
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws , req) => {
+ 
+  const fullUrl = new URL(req.url, `http://${req.headers.host}`);
+  const chatId = fullUrl.searchParams.get("chat_id");  
+
+  ws.chatId = chatId;
   clients.add(ws);
+
   console.log("✅ WebSocket client connected. Total:", clients.size);
 
   ws.on("close", () => {
@@ -33,13 +39,14 @@ wss.on("connection", (ws) => {
 
   ws.on("message", async (msg) => {
     try {
+
       const data = JSON.parse(msg.toString());
       console.log("WS message:", data);
-      messages.push(data);
+      messages.push(data.text);
 
       // ✅ Only start broadcasting if at least 2 clients are connected
       if (clients.size >= 2) {
-        // ws.send(JSON.stringify(messages));
+        
         for (const client of clients) {
           if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify(messages));
@@ -52,11 +59,14 @@ wss.on("connection", (ws) => {
       console.error("WS message error:", err);
     }
   });
+
+
 });
 
 // ✅ Telegram Webhook
 app.post("/webhook", async (req, res) => {
   const update = req.body;
+
 
   try {
     if (update.message) {
@@ -64,17 +74,7 @@ app.post("/webhook", async (req, res) => {
       const text = update.message.text;
 
       console.log("Telegram message:", text);
-
-      // ✅ Send Telegram message to all connected WS clients if 2+ users
-      if (clients.size >= 2) {
-        for (const client of clients) {
-          if (client.readyState === client.OPEN) {
-            console.log("should go out ");
-            client.send(JSON.stringify({ type: "message", chatId, text }));
-          }
-        }
-      }
-
+     
       // Telegram command handling
       if (text === "/start" || text === "/play") {
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendGame`, {
@@ -88,6 +88,7 @@ app.post("/webhook", async (req, res) => {
       }
     }
 
+
     if (update.callback_query) {
       const callback = update.callback_query;
       if (callback.game_short_name === GAME_SHORT_NAME) {
@@ -96,12 +97,19 @@ app.post("/webhook", async (req, res) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             callback_query_id: callback.id,
-            url: WEBAPP_URL,
+            url:`${WEBAPP_URL}?chat_id=${callback.from.id}`
           }),
         });
       }
     }
 
+        //   const test = update?.message?.chat?.id;
+        //     console.log("should go out " , test);
+        // for (const client of clients) {
+        //   if (client.readyState === client.OPEN && client.chatId === String(test)) {
+        //     client.send(JSON.stringify({ type: "message", chatId }));
+        //   }
+        // }
     res.sendStatus(200);
   } catch (err) {
     console.error("Telegram webhook error:", err);

@@ -31,25 +31,35 @@
     <h2>💬 Telegram WebSocket Chat</h2>
     <div id="messages"></div>
 
-    <input id="chatId" placeholder="Chat ID" />
+    <!-- <input id="chatId" placeholder="Chat ID" /> -->
     <input id="text" placeholder="Message" />
+    <div id="chatId"> </div>
     <button id="send">Send</button>
 
     <script>
-      const ws = new WebSocket(`ws://${location.host}`);
+      const ws = new WebSocket(`wss://${location.host}`);
 
+      const urlParams = new URLSearchParams(window.location.search);
+const chatId = urlParams.get("chat_id");
+// ws.chatId = chatId;
+          const chatid = document.getElementById("messages");
+          chatid.innerHTML  = chatId
+      
+// console.logI(chatId , 'chatId')
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        console.log(data, 'data inter')
         // if (data.type === "message") {
           const div = document.getElementById("messages");
-          div.innerHTML += `<div><b>${data.chatId}:</b> ${data.text}</div>`;
+          let messages = data.map((message)=>  `<div> ${message}</div>`)
+          div.innerHTML += messages; 
         // }
       };
 
       document.getElementById("send").onclick = () => {
-        const chatId = document.getElementById("chatId").value;
+        // const chatId = document.getElementById("chatId").value;
         const text = document.getElementById("text").value;
-        ws.send(JSON.stringify({ chatId, text }));
+        ws.send(JSON.stringify({  text }));
       };
     </script>
   </body>
