@@ -10,7 +10,7 @@ dotenv.config();
 const BOT_TOKEN = "8490569804:AAF8gPT2dOjSfzOmOJyT-u0IV7Sd-J26TSk";
 const GAME_SHORT_NAME = "short_game";
 const WEBAPP_URL = "https://nonviolative-isaura-nonhumorously.ngrok-free.dev";
- 
+
 const app = express();
 app.use(bodyParser.json());
 app.use(express.static("public")); // Serve index.html and assets from /public
@@ -22,10 +22,10 @@ const messages = [];
 // ✅ Create WebSocket server
 const wss = new WebSocketServer({ noServer: true });
 
-wss.on("connection", (ws , req) => {
- 
+wss.on("connection", (ws, req) => {
+
   const fullUrl = new URL(req.url, `http://${req.headers.host}`);
-  const chatId = fullUrl.searchParams.get("chat_id");  
+  const chatId = fullUrl.searchParams.get("chat_id");
 
   ws.chatId = chatId;
   clients.add(ws);
@@ -46,7 +46,7 @@ wss.on("connection", (ws , req) => {
 
       // ✅ Only start broadcasting if at least 2 clients are connected
       if (clients.size >= 2) {
-        
+
         for (const client of clients) {
           if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify(messages));
@@ -63,10 +63,12 @@ wss.on("connection", (ws , req) => {
 
 });
 
+
 // ✅ Telegram Webhook
 app.post("/webhook", async (req, res) => {
   const update = req.body;
-
+  const unique = 1111;
+  const gameUrl = `${WEBAPP_URL}?chat_id=${unique}`;
 
   try {
     if (update.message) {
@@ -74,7 +76,7 @@ app.post("/webhook", async (req, res) => {
       const text = update.message.text;
 
       console.log("Telegram message:", text);
-     
+
       // Telegram command handling
       if (text === "/start" || text === "/play") {
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendGame`, {
@@ -85,6 +87,21 @@ app.post("/webhook", async (req, res) => {
             game_short_name: GAME_SHORT_NAME,
           }),
         });
+
+
+        // if (!waitingPlayer) {
+        //   waitingPlayer = chatId;
+        //   console.log(chatId, "⏳ Waiting for another player...");
+        // } else {
+        //   const otherId = waitingPlayer;
+        //   waitingPlayer = null;
+
+ 
+
+        //  await sendGameInvite(chatId, gameUrl, otherId);
+        //  await sendGameInvite(otherId, gameUrl, chatId);
+
+        // }
       }
     }
 
@@ -92,24 +109,19 @@ app.post("/webhook", async (req, res) => {
     if (update.callback_query) {
       const callback = update.callback_query;
       if (callback.game_short_name === GAME_SHORT_NAME) {
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            callback_query_id: callback.id,
-            url:`${WEBAPP_URL}?chat_id=${callback.from.id}`
-          }),
-        });
-      }
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          callback_query_id: callback.id,
+          url: gameUrl
+        }),
+      });
+
+     }
     }
 
-        //   const test = update?.message?.chat?.id;
-        //     console.log("should go out " , test);
-        // for (const client of clients) {
-        //   if (client.readyState === client.OPEN && client.chatId === String(test)) {
-        //     client.send(JSON.stringify({ type: "message", chatId }));
-        //   }
-        // }
+
     res.sendStatus(200);
   } catch (err) {
     console.error("Telegram webhook error:", err);
@@ -117,6 +129,21 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+
+
+// async function sendGameInvite(toChatId, gameUrl, opponentId) {
+//   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+//     method: "POST",
+//     headers: { "Content-Type": "application/json" },
+//     body: JSON.stringify({
+//       chat_id: toChatId,
+//       text: `🎮 Your match is ready! Join the game here:`,
+//       reply_markup: {
+//         inline_keyboard: [[{ text: "Play Now", url: gameUrl }]],
+//       },
+//     }),
+//   });
+// }
 // ✅ Create HTTP server and integrate WebSocket
 const server = createServer(app);
 
