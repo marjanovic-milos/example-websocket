@@ -11,6 +11,8 @@ const BOT_TOKEN = "8490569804:AAF8gPT2dOjSfzOmOJyT-u0IV7Sd-J26TSk";
 const GAME_SHORT_NAME = "short_game";
 const WEBAPP_URL = "https://nonviolative-isaura-nonhumorously.ngrok-free.dev";
 
+
+
 const app = express();
 app.use(bodyParser.json());
 app.use(express.static("public")); // Serve index.html and assets from /public
@@ -69,7 +71,7 @@ app.post("/webhook", async (req, res) => {
   const update = req.body;
   const unique = 1111;
   const gameUrl = `${WEBAPP_URL}?chat_id=${unique}`;
-
+ 
   try {
     if (update.message) {
       const chatId = update.message.chat.id;
@@ -79,6 +81,13 @@ app.post("/webhook", async (req, res) => {
 
       // Telegram command handling
       if (text === "/start" || text === "/play") {
+
+        console.log(update , 'ovo je body od webhooka');
+        
+const userId = update.message.from.id;
+const photoUrl = await getUserPhotoUrl(userId);
+console.log("User photo:", photoUrl);
+
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendGame`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -86,6 +95,9 @@ app.post("/webhook", async (req, res) => {
             chat_id: chatId,
             game_short_name: GAME_SHORT_NAME,
           }),
+
+
+          
         });
 
 
@@ -145,6 +157,25 @@ app.post("/webhook", async (req, res) => {
 //   });
 // }
 // ✅ Create HTTP server and integrate WebSocket
+
+
+
+async function getUserPhotoUrl(userId) {
+  const photosRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUserProfilePhotos?user_id=${userId}`);
+  const photos = await photosRes.json();
+
+  if (!photos.result?.photos?.length) return null;
+
+  const fileId = photos.result.photos[0].at(-1).file_id;
+
+  const fileRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`);
+  const fileData = await fileRes.json();
+
+  return `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileData.result.file_path}`;
+}
+
+
+
 const server = createServer(app);
 
 server.on("upgrade", (req, socket, head) => {
